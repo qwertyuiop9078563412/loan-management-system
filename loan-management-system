@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1, h2 {
+            color: #333;
+        }
+
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        #results {
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: right;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Financial Calculator</h1>
+        <form id="calc-form">
+            <label for="principal">Initial Principal:</label>
+            <input type="number" id="principal" step="0.01" required><br>
+
+            <label for="initialInterest">Initial Interest Rate (per period):</label>
+            <input type="number" id="initialInterest" step="0.01" required><br>
+
+            <label for="reductionRate">Reduction Rate (per period):</label>
+            <input type="number" id="reductionRate" step="0.01" required><br>
+
+            <label for="emi">Fixed EMI:</label>
+            <input type="number" id="emi" step="0.01" required><br>
+
+            <button type="button" onclick="calculate()">Calculate</button>
+        </form>
+
+        <div id="results">
+            <h2>Results:</h2>
+            <table id="resultsTable">
+                <thead>
+                    <tr>
+                        <th>Period</th>
+                        <th>Opening Balance (A)</th>
+                        <th>Interest (B)</th>
+                        <th>Total (C)</th>
+                        <th>EMI (D)</th>
+                        <th>Principal Component (E)</th>
+                        <th>Interest Component (F)</th>
+                        <th>Closing Balance (G)</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                </tbody>
+            </table>
+            <button id="downloadExcel" style="display: none;" onclick="downloadExcel()">Download Excel</button>
+        </div>
+    </div>
+
+    <!-- Include the XLSX library for Excel export functionality -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        function calculate() {
+            const principal = parseFloat(document.getElementById('principal').value);
+            const initialInterest = parseFloat(document.getElementById('initialInterest').value);
+            const reductionRate = parseFloat(document.getElementById('reductionRate').value);
+            const emi = parseFloat(document.getElementById('emi').value);
+
+            let currentPrincipal = principal;
+            let cumulativeInterest = 0;
+            let period = 1;
+            let data = [];
+            let previousOpeningBalance = principal;
+
+            // Calculate the initial Principal Component (E)
+            let initialPrincipalComponent = principal - emi;
+
+            while (currentPrincipal > 0) {
+                // Calculate interest for the current period
+                let interest = Math.max(0, initialInterest + (period - 1) * (-reductionRate));
+                let total = currentPrincipal + interest;
+                let closingBalance = total - emi;
+
+                // Calculate the Principal Component (E) as an arithmetic progression
+                let principalComponent = initialPrincipalComponent - (period - 1) * emi;
+
+                // Ensure Principal Component (E) is not less than zero
+                if (principalComponent < 0) {
+                    principalComponent = 0;
+                    closingBalance = total - emi; // Adjust closing balance if principal component is zero
+                }
+
+                // Calculate the Interest Component (F)
+                let interestComponent = interest;
+
+                // Calculate the Cumulative Interest
+                cumulativeInterest += interestComponent;
+
+                // Prepare the data for the current period
+                data.push([
+                    period,
+                    previousOpeningBalance.toFixed(2),
+                    interestComponent.toFixed(2),
+                    total.toFixed(2),
+                    emi.toFixed(2),
+                    principalComponent.toFixed(2),
+                    cumulativeInterest.toFixed(2),
+                    closingBalance.toFixed(2)
+                ]);
+
+                // If closing balance is zero, end the loop
+                if (closingBalance <= 0) {
+                    break;
+                }
+
+                // Update for the next iteration
+                previousOpeningBalance = closingBalance;
+                currentPrincipal = closingBalance;
+                period++;
+            }
+
+            // Update the table with the calculated results
+            const tableBody = document.getElementById('resultsBody');
+            tableBody.innerHTML = '';
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                row.forEach(cell => {
+                    const td = document.createElement('td');
+                    td.textContent = cell;
+                    tr.appendChild(td);
+                });
+                tableBody.appendChild(tr);
+            });
+
+            // Show the download button
+            document.getElementById('downloadExcel').style.display = 'block';
+        }
+        
+        function downloadExcel() {
+            const ws = XLSX.utils.table_to_sheet(document.getElementById('resultsTable'));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Results');
+            XLSX.writeFile(wb, 'Financial_Calculator_Results.xlsx');
+        }
+    </script>
+</body>
+</html>
